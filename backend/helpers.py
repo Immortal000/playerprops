@@ -1,7 +1,20 @@
 import pandas as pd
+import requests
 from nba_api.stats.static import players
 from nba_api.stats.endpoints import playergamelog
 from constants import * 
+
+def get_prizepicks_lines():
+    headers = {
+        'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
+        'Accept': 'application/json'
+    }
+    url = 'https://api.prizepicks.com/projections'
+
+    r = requests.get(url).json()
+
+    return r
+
 
 def name_to_id(name: str) -> str:
     player = players.find_players_by_full_name(name)
