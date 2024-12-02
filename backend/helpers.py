@@ -1,6 +1,5 @@
 from datetime import datetime
 import pandas as pd
-import requests
 from nba_api.stats.static import players
 from nba_api.stats.endpoints import playergamelog
 from constants import * 
@@ -9,15 +8,56 @@ import json
 def get_prizepicks_lines():
     DATE = f"{datetime.now().strftime('%m-%d-%Y')}"
 
-    with open(f"./data/{DATE}.json") as prize_projections:
+    with open(f"./data/{DATE}.json", encoding='utf-8') as prize_projections:
         data = json.load(prize_projections)
 
-    df = pd.json_normalize(data['data'])
+    # Create main DataFrame with projections
+    df = pd.json_normalize(
+        data['data'],
+        sep='.',
+        meta=[
+            'attributes.line_score',
+            'attributes.start_time',
+            'attributes.stat_type',
+            ['relationships', 'new_player', 'data', 'id'],
+            ['relationships', 'league', 'data', 'id']
+        ]
+    )
 
-    print(df.head(5))
-    print(df.columns)
+    # Create DataFrame for player information from included section
+    players_df = pd.json_normalize(
+        data['included'],
+        sep='.',
+        meta=[
+            'id',
+            'attributes.name'
+            'attributes.league'
+        ]
+    )
 
-    return df
+    # Rename columns
+    df = df.rename(columns={
+        'attributes.line_score': 'line_score',
+        'attributes.start_time': 'start_time',
+        'attributes.stat_type': 'stat_type',
+        'relationships.new_player.data.id': 'player_id',
+        'relationships.league.data.id': 'league_id'
+    })
+
+    players_df = players_df.rename(columns={
+        'attributes.name': 'player_name',
+        'attributes.league': 'league'
+    })
+
+    # Merge the DataFrames on player_id
+    df = df.merge(
+        players_df[['id', 'player_name', 'league']], 
+        left_on='player_id', 
+        right_on='id'
+    )
+
+    # Select only the columns we want
+    return df[df["league"] == "NBA"][['line_score', 'start_time', 'stat_type', 'player_id', 'league_id', 'player_name', 'league']]
 
 def name_to_id(name: str) -> str:
     player = players.find_players_by_full_name(name)
